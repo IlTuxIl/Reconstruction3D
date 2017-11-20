@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
 {
     help();
     Settings s;
-    const string inputSettingsFile = argc > 1 ? argv[1] : "data/in_VID5.xml";
+    const string inputSettingsFile = argc > 1 ? argv[1] : "conf/in_VID5.xml";
     FileStorage fs(inputSettingsFile, FileStorage::READ); // Read the settings
     if (!fs.isOpened())
     {
