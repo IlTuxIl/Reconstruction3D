@@ -380,6 +380,8 @@ int main(int argc, char* argv[])
                 continue;
             remap(view, rview, map1, map2, INTER_LINEAR);
             imshow("Image View", rview);
+	    string output_name = "corrected_" + std::to_string(i) + ".jpg";
+	    imwrite(output_name, rview);
             char c = (char)waitKey();
             if( c  == ESC_KEY || c == 'q' || c == 'Q' )
                 break;
