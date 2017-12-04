@@ -26,15 +26,14 @@ class Settings
 {
 public:
     Settings() : goodInput(false) {}
-    enum Pattern { NOT_EXISTING, CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
-    enum InputType {INVALID, CAMERA, VIDEO_FILE, IMAGE_LIST};
+    enum Pattern {CHESSBOARD};
+    enum InputType {INVALID, IMAGE_LIST};
 
     void write(FileStorage& fs) const                        //Write serialization for this class
     {
         fs << "{" << "BoardSize_Width"  << boardSize.width
            << "BoardSize_Height" << boardSize.height
            << "Square_Size"         << squareSize
-           << "Calibrate_Pattern" << patternToUse
            << "Calibrate_NrOfFrameToUse" << nrFrames
            << "Calibrate_FixAspectRatio" << aspectRatio
            << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
@@ -46,7 +45,6 @@ public:
 
            << "Show_UndistortedImage" << showUndistorsed
 
-           << "Input_FlipAroundHorizontalAxis" << flipVertical
            << "Input_Delay" << delay
            << "Input" << input
            << "}";
@@ -55,7 +53,6 @@ public:
     {
         node["BoardSize_Width" ] >> boardSize.width;
         node["BoardSize_Height"] >> boardSize.height;
-        node["Calibrate_Pattern"] >> patternToUse;
         node["Square_Size"]  >> squareSize;
         node["Calibrate_NrOfFrameToUse"] >> nrFrames;
         node["Calibrate_FixAspectRatio"] >> aspectRatio;
@@ -64,7 +61,6 @@ public:
         node["Write_outputFileName"] >> outputFileName;
         node["Calibrate_AssumeZeroTangentialDistortion"] >> calibZeroTangentDist;
         node["Calibrate_FixPrincipalPointAtTheCenter"] >> calibFixPrincipalPoint;
-        node["Input_FlipAroundHorizontalAxis"] >> flipVertical;
         node["Show_UndistortedImage"] >> showUndistorsed;
         node["Input"] >> input;
         node["Input_Delay"] >> delay;
@@ -89,54 +85,20 @@ public:
             goodInput = false;
         }
 
-        if (input.empty())      // Check for valid input
+        if (isListOfImages(input) && readStringList(input, imageList))
+        {
+            inputType = IMAGE_LIST;
+            nrFrames = (nrFrames < (int)imageList.size()) ? nrFrames : (int)imageList.size();
+        }
+        if (inputType != IMAGE_LIST && !inputCapture.isOpened())
             inputType = INVALID;
-        else
-        {
-            if (input[0] >= '0' && input[0] <= '9')
-            {
-                stringstream ss(input);
-                ss >> cameraID;
-                inputType = CAMERA;
-            }
-            else
-            {
-                if (isListOfImages(input) && readStringList(input, imageList))
-                {
-                    inputType = IMAGE_LIST;
-                    nrFrames = (nrFrames < (int)imageList.size()) ? nrFrames : (int)imageList.size();
-                }
-                else
-                    inputType = VIDEO_FILE;
-            }
-            if (inputType == CAMERA)
-                inputCapture.open(cameraID);
-            if (inputType == VIDEO_FILE)
-                inputCapture.open(input);
-            if (inputType != IMAGE_LIST && !inputCapture.isOpened())
-                inputType = INVALID;
-        }
-        if (inputType == INVALID)
-        {
-            cerr << " Inexistent input: " << input;
-            goodInput = false;
-        }
 
         flag = 0;
         if(calibFixPrincipalPoint) flag |= CV_CALIB_FIX_PRINCIPAL_POINT;
         if(calibZeroTangentDist)   flag |= CV_CALIB_ZERO_TANGENT_DIST;
         if(aspectRatio)            flag |= CV_CALIB_FIX_ASPECT_RATIO;
 
-
-        calibrationPattern = NOT_EXISTING;
-        if (!patternToUse.compare("CHESSBOARD")) calibrationPattern = CHESSBOARD;
-        if (!patternToUse.compare("CIRCLES_GRID")) calibrationPattern = CIRCLES_GRID;
-        if (!patternToUse.compare("ASYMMETRIC_CIRCLES_GRID")) calibrationPattern = ASYMMETRIC_CIRCLES_GRID;
-        if (calibrationPattern == NOT_EXISTING)
-        {
-            cerr << " Inexistent camera calibration mode: " << patternToUse << endl;
-            goodInput = false;
-        }
+        calibrationPattern = CHESSBOARD;
         atImageList = 0;
 
     }
@@ -190,24 +152,16 @@ public:
     bool bwriteExtrinsics;     // Write extrinsic parameters
     bool calibZeroTangentDist; // Assume zero tangential distortion
     bool calibFixPrincipalPoint;// Fix the principal point at the center
-    bool flipVertical;          // Flip the captured images around the horizontal axis
     string outputFileName;      // The name of the file where to write
     bool showUndistorsed;       // Show undistorted images after calibration
     string input;               // The input ->
 
-
-
-    int cameraID;
     vector<string> imageList;
     int atImageList;
     VideoCapture inputCapture;
     InputType inputType;
     bool goodInput;
     int flag;
-
-private:
-    string patternToUse;
-
 
 };
 
@@ -276,28 +230,12 @@ int main(int argc, char* argv[])
 
 
         imageSize = view.size();  // Format input image.
-        if( s.flipVertical )    flip( view, view, 0 );
 
         vector<Point2f> pointBuf;
 
         bool found;
-        switch( s.calibrationPattern ) // Find feature points on the input format
-        {
-            case Settings::CHESSBOARD:
-                found = findChessboardCorners( view, s.boardSize, pointBuf,
+        found = findChessboardCorners( view, s.boardSize, pointBuf,
                                                CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
-                break;
-            case Settings::CIRCLES_GRID:
-                found = findCirclesGrid( view, s.boardSize, pointBuf );
-                break;
-            case Settings::ASYMMETRIC_CIRCLES_GRID:
-                found = findCirclesGrid( view, s.boardSize, pointBuf, CALIB_CB_ASYMMETRIC_GRID );
-                break;
-            default:
-                found = false;
-                break;
-        }
-
         if ( found)                // If done with success,
         {
             // improve the found corners' coordinate accuracy for chessboard
@@ -380,8 +318,8 @@ int main(int argc, char* argv[])
                 continue;
             remap(view, rview, map1, map2, INTER_LINEAR);
             imshow("Image View", rview);
-	    string output_name = "corrected_" + std::to_string(i) + ".jpg";
-	    imwrite(output_name, rview);
+            string filename = "resultats/corrected_" + std::to_string(i) + ".jpg";
+            imwrite(filename, rview);
             char c = (char)waitKey();
             if( c  == ESC_KEY || c == 'q' || c == 'Q' )
                 break;
@@ -422,24 +360,9 @@ static void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Po
                                      Settings::Pattern patternType /*= Settings::CHESSBOARD*/)
 {
     corners.clear();
-
-    switch(patternType)
-    {
-        case Settings::CHESSBOARD:
-        case Settings::CIRCLES_GRID:
-            for( int i = 0; i < boardSize.height; ++i )
-                for( int j = 0; j < boardSize.width; ++j )
-                    corners.push_back(Point3f(float( j*squareSize ), float( i*squareSize ), 0));
-            break;
-
-        case Settings::ASYMMETRIC_CIRCLES_GRID:
-            for( int i = 0; i < boardSize.height; i++ )
-                for( int j = 0; j < boardSize.width; j++ )
-                    corners.push_back(Point3f(float((2*j + i % 2)*squareSize), float(i*squareSize), 0));
-            break;
-        default:
-            break;
-    }
+    for( int i = 0; i < boardSize.height; ++i )
+        for( int j = 0; j < boardSize.width; ++j )
+            corners.push_back(Point3f(float( j*squareSize ), float( i*squareSize ), 0));
 }
 
 static bool runCalibration( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& distCoeffs,
