@@ -34,17 +34,11 @@ public:
         fs << "{" << "BoardSize_Width"  << boardSize.width
            << "BoardSize_Height" << boardSize.height
            << "Square_Size"         << squareSize
-           << "Calibrate_NrOfFrameToUse" << nrFrames
+//           << "Calibrate_NrOfFrameToUse" << nrFrames
            << "Calibrate_FixAspectRatio" << aspectRatio
            << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
            << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
-
-           << "Write_DetectedFeaturePoints" << bwritePoints
-           << "Write_extrinsicParameters"   << bwriteExtrinsics
            << "Write_outputFileName"  << outputFileName
-
-           << "Show_UndistortedImage" << showUndistorsed
-
            << "Input_Delay" << delay
            << "Input" << input
            << "}";
@@ -54,14 +48,11 @@ public:
         node["BoardSize_Width" ] >> boardSize.width;
         node["BoardSize_Height"] >> boardSize.height;
         node["Square_Size"]  >> squareSize;
-        node["Calibrate_NrOfFrameToUse"] >> nrFrames;
+//        node["Calibrate_NrOfFrameToUse"] >> nrFrames;
         node["Calibrate_FixAspectRatio"] >> aspectRatio;
-        node["Write_DetectedFeaturePoints"] >> bwritePoints;
-        node["Write_extrinsicParameters"] >> bwriteExtrinsics;
         node["Write_outputFileName"] >> outputFileName;
         node["Calibrate_AssumeZeroTangentialDistortion"] >> calibZeroTangentDist;
         node["Calibrate_FixPrincipalPointAtTheCenter"] >> calibFixPrincipalPoint;
-        node["Show_UndistortedImage"] >> showUndistorsed;
         node["Input"] >> input;
         node["Input_Delay"] >> delay;
         interprate();
@@ -79,16 +70,10 @@ public:
             cerr << "Invalid square size " << squareSize << endl;
             goodInput = false;
         }
-        if (nrFrames <= 0)
-        {
-            cerr << "Invalid number of frames " << nrFrames << endl;
-            goodInput = false;
-        }
-
         if (isListOfImages(input) && readStringList(input, imageList))
         {
             inputType = IMAGE_LIST;
-            nrFrames = (nrFrames < (int)imageList.size()) ? nrFrames : (int)imageList.size();
+            nrFrames = (int)imageList.size();
         }
         if (inputType != IMAGE_LIST && !inputCapture.isOpened())
             inputType = INVALID;
@@ -148,12 +133,10 @@ public:
     int nrFrames;              // The number of frames to use from the input for calibration
     float aspectRatio;         // The aspect ratio
     int delay;                 // In case of a video input
-    bool bwritePoints;         //  Write detected feature points
-    bool bwriteExtrinsics;     // Write extrinsic parameters
     bool calibZeroTangentDist; // Assume zero tangential distortion
     bool calibFixPrincipalPoint;// Fix the principal point at the center
     string outputFileName;      // The name of the file where to write
-    bool showUndistorsed;       // Show undistorted images after calibration
+    bool showUndistorsed = true;       // Show undistorted images after calibration
     string input;               // The input ->
 
     vector<string> imageList;
