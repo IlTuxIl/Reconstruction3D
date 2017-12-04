@@ -1,7 +1,13 @@
 <?xml version="1.0"?>
 <opencv_storage>
 <images>
-data/20171120_111836.jpg
-data/20171120_111849.jpg
+data/CHESSBOARD_0.jpg
+data/CHESSBOARD_1.jpg
+data/CHESSBOARD_2.jpg
+data/CHESSBOARD_3.jpg
+data/CHESSBOARD_4.jpg
+data/CHESSBOARD_5.jpg
+data/CHESSBOARD_6.jpg
+data/CHESSBOARD_8.jpg
 </images>
 </opencv_storage>
