@@ -62,7 +62,6 @@ public:
         if(calibZeroTangentDist)   flag |= CV_CALIB_ZERO_TANGENT_DIST;
         if(aspectRatio)            flag |= CV_CALIB_FIX_ASPECT_RATIO;
 
-        calibrationPattern = CHESSBOARD;
         atImageList = 0;
 
     }
@@ -102,7 +101,6 @@ public:
     }
 public:
     Size boardSize;            // The size of the board -> Number of items by width and height
-    Pattern calibrationPattern;// One of the Chessboard, circles, or asymmetric circle pattern
     float squareSize;          // The size of a square in your defined unit (point, millimeter,etc).
     int nrFrames;              // The number of frames to use from the input for calibration
     float aspectRatio;         // The aspect ratio
@@ -130,7 +128,7 @@ static void read(const FileNode& node, Settings& x, const Settings& default_valu
         x.read(node);
 }
 
-enum {CAPTURING = 1, CALIBRATED = 2 };
+enum {CAPTURING = 1, CALIBRATED = 2};
 
 bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat& distCoeffs,
                            vector<vector<Point2f> > imagePoints );
@@ -181,8 +179,7 @@ int main(int argc, char* argv[])
 
         vector<Point2f> pointBuf;
 
-        bool found;
-        found = findChessboardCorners( view, s.boardSize, pointBuf,
+        bool found = findChessboardCorners( view, s.boardSize, pointBuf,
                                                CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
         if ( found)                // If done with success,
         {
@@ -201,8 +198,8 @@ int main(int argc, char* argv[])
             }
 
             // Draw the corners.
-            drawChessboardCorners( view, s.boardSize, Mat(pointBuf), found );
         }
+            drawChessboardCorners( view, s.boardSize, Mat(pointBuf), found );
 
         //----------------------------- Output Text ------------------------------------------------
         string msg = "100/100";
@@ -225,16 +222,7 @@ int main(int argc, char* argv[])
 
         //------------------------------ Show image and check for input commands -------------------
         imshow("Image View", view);
-        char key = (char)waitKey(s.inputCapture.isOpened() ? 50 : s.delay);
-
-        if( key  == ESC_KEY )
-            break;
-
-        if( s.inputCapture.isOpened() && key == 'g' )
-        {
-            mode = CAPTURING;
-            imagePoints.clear();
-        }
+        waitKey(s.delay);
     }
 
     // -----------------------Show the undistorted image for the image list ------------------------
@@ -297,7 +285,6 @@ static void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Po
         for( int j = 0; j < boardSize.width; ++j )
             corners.push_back(Point3f(float( j*squareSize ), float( i*squareSize ), 0));
 }
-
 static bool runCalibration( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat& distCoeffs,
                             vector<vector<Point2f> > imagePoints, vector<Mat>& rvecs, vector<Mat>& tvecs,
                             vector<float>& reprojErrs,  double& totalAvgErr)
