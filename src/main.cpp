@@ -22,20 +22,6 @@ public:
     enum Pattern {CHESSBOARD};
     enum InputType {INVALID, IMAGE_LIST};
 
-    void write(FileStorage& fs) const                        //Write serialization for this class
-    {
-        fs << "{" << "BoardSize_Width"  << boardSize.width
-           << "BoardSize_Height" << boardSize.height
-           << "Square_Size"         << squareSize
-//           << "Calibrate_NrOfFrameToUse" << nrFrames
-           << "Calibrate_FixAspectRatio" << aspectRatio
-           << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
-           << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
-           << "Write_outputFileName"  << outputFileName
-           << "Input_Delay" << delay
-           << "Input" << input
-           << "}";
-    }
     void read(const FileNode& node)                          //Read serialization for this class
     {
         node["BoardSize_Width" ] >> boardSize.width;
