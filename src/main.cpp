@@ -15,13 +15,6 @@
 using namespace cv;
 using namespace std;
 
-static void help()
-{
-    cout <<  "This is a camera calibration sample." << endl
-         <<  "Usage: calibration configurationFile"  << endl
-         <<  "Near the sample file you'll find the configuration file, which has detailed help of "
-                 "how to edit it.  It may be any OpenCV supported file format XML/YAML." << endl;
-}
 class Settings
 {
 public:
@@ -29,20 +22,6 @@ public:
     enum Pattern {CHESSBOARD};
     enum InputType {INVALID, IMAGE_LIST};
 
-    void write(FileStorage& fs) const                        //Write serialization for this class
-    {
-        fs << "{" << "BoardSize_Width"  << boardSize.width
-           << "BoardSize_Height" << boardSize.height
-           << "Square_Size"         << squareSize
-//           << "Calibrate_NrOfFrameToUse" << nrFrames
-           << "Calibrate_FixAspectRatio" << aspectRatio
-           << "Calibrate_AssumeZeroTangentialDistortion" << calibZeroTangentDist
-           << "Calibrate_FixPrincipalPointAtTheCenter" << calibFixPrincipalPoint
-           << "Write_outputFileName"  << outputFileName
-           << "Input_Delay" << delay
-           << "Input" << input
-           << "}";
-    }
     void read(const FileNode& node)                          //Read serialization for this class
     {
         node["BoardSize_Width" ] >> boardSize.width;
@@ -151,14 +130,13 @@ static void read(const FileNode& node, Settings& x, const Settings& default_valu
         x.read(node);
 }
 
-enum { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
+enum {CAPTURING = 1, CALIBRATED = 2 };
 
 bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat& distCoeffs,
                            vector<vector<Point2f> > imagePoints );
 
 int main(int argc, char* argv[])
 {
-    help();
     Settings s;
     const string inputSettingsFile = argc > 1 ? argv[1] : "conf/in_VID5.xml";
     FileStorage fs(inputSettingsFile, FileStorage::READ); // Read the settings
@@ -179,7 +157,7 @@ int main(int argc, char* argv[])
     vector<vector<Point2f> > imagePoints;
     Mat cameraMatrix, distCoeffs;
     Size imageSize;
-    int mode = s.inputType == Settings::IMAGE_LIST ? CAPTURING : DETECTION;
+    int mode = CAPTURING;
     clock_t prevTimestamp = 0;
     const Scalar RED(0,0,255), GREEN(0,255,0);
     const char ESC_KEY = 27;
@@ -191,14 +169,6 @@ int main(int argc, char* argv[])
 
         view = s.nextImage();
 
-        //-----  If no more image, or got enough, then stop calibration and show result -------------
-        if( mode == CAPTURING && imagePoints.size() >= (unsigned)s.nrFrames )
-        {
-            if( runCalibrationAndSave(s, imageSize,  cameraMatrix, distCoeffs, imagePoints))
-                mode = CALIBRATED;
-            else
-                mode = DETECTION;
-        }
         if(view.empty())          // If no more images then run calibration, save and stop loop.
         {
             if( imagePoints.size() > 0 )
@@ -216,14 +186,11 @@ int main(int argc, char* argv[])
                                                CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
         if ( found)                // If done with success,
         {
-            // improve the found corners' coordinate accuracy for chessboard
-            if( s.calibrationPattern == Settings::CHESSBOARD)
-            {
-                Mat viewGray;
-                cvtColor(view, viewGray, COLOR_BGR2GRAY);
-                cornerSubPix( viewGray, pointBuf, Size(11,11),
-                              Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
-            }
+
+            Mat viewGray;
+            cvtColor(view, viewGray, COLOR_BGR2GRAY);
+            cornerSubPix( viewGray, pointBuf, Size(11,11),
+                          Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
 
             if( mode == CAPTURING &&  // For camera only take new samples after delay time
                 (!s.inputCapture.isOpened() || clock() - prevTimestamp > s.delay*1e-3*CLOCKS_PER_SEC) )
@@ -238,8 +205,7 @@ int main(int argc, char* argv[])
         }
 
         //----------------------------- Output Text ------------------------------------------------
-        string msg = (mode == CAPTURING) ? "100/100" :
-                     mode == CALIBRATED ? "Calibrated" : "Press 'g' to start";
+        string msg = "100/100";
         int baseLine = 0;
         Size textSize = getTextSize(msg, 1, 1, 1, &baseLine);
         Point textOrigin(view.cols - 2*textSize.width - 10, view.rows - 2*baseLine - 10);
@@ -257,22 +223,12 @@ int main(int argc, char* argv[])
         if( blinkOutput )
             bitwise_not(view, view);
 
-        //------------------------- Video capture  output  undistorted ------------------------------
-        if( mode == CALIBRATED && s.showUndistorsed )
-        {
-            Mat temp = view.clone();
-            undistort(temp, view, cameraMatrix, distCoeffs);
-        }
-
         //------------------------------ Show image and check for input commands -------------------
         imshow("Image View", view);
         char key = (char)waitKey(s.inputCapture.isOpened() ? 50 : s.delay);
 
         if( key  == ESC_KEY )
             break;
-
-        if( key == 'u' && mode == CALIBRATED )
-            s.showUndistorsed = !s.showUndistorsed;
 
         if( s.inputCapture.isOpened() && key == 'g' )
         {
@@ -334,8 +290,7 @@ static double computeReprojectionErrors( const vector<vector<Point3f> >& objectP
     return std::sqrt(totalErr/totalPoints);
 }
 
-static void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Point3f>& corners,
-                                     Settings::Pattern patternType /*= Settings::CHESSBOARD*/)
+static void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Point3f>& corners)
 {
     corners.clear();
     for( int i = 0; i < boardSize.height; ++i )
@@ -355,7 +310,7 @@ static bool runCalibration( Settings& s, Size& imageSize, Mat& cameraMatrix, Mat
     distCoeffs = Mat::zeros(8, 1, CV_64F);
 
     vector<vector<Point3f> > objectPoints(1);
-    calcBoardCornerPositions(s.boardSize, s.squareSize, objectPoints[0], s.calibrationPattern);
+    calcBoardCornerPositions(s.boardSize, s.squareSize, objectPoints[0]);
 
     objectPoints.resize(imagePoints.size(),objectPoints[0]);
 
