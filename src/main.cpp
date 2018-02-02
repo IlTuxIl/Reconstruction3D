@@ -136,7 +136,7 @@ bool runCalibrationAndSave(Settings& s, Size imageSize, Mat&  cameraMatrix, Mat&
 int main(int argc, char* argv[])
 {
     Settings s;
-    const string inputSettingsFile = argc > 1 ? argv[1] : "conf/in_VID5.xml";
+    const string inputSettingsFile = argc > 1 ? argv[1] : "../conf/in_VID5.xml";
     FileStorage fs(inputSettingsFile, FileStorage::READ); // Read the settings
     if (!fs.isOpened())
     {
